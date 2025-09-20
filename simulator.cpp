@@ -8,20 +8,22 @@
 
 namespace py = pybind11;
 
-int add(int a, int b) {
-    return a + b;
-}
-
 PYBIND11_MODULE(example, m) {
-    m.doc() = "Example C++ extension module";
-    m.def("add", &add, "A function that adds two numbers");
+    m.doc() = "C++ module for Monte Carlo Ising simulation"; // Optional module docstring
+    m.def("MCIsing", [](int rows, int cols, int n_rule, int generations, double density) {
+        MCIsing sim(rows, cols, n_rule);
+        sim.randomInitialize(density);
+        std::ofstream file("output.txt");
+        sim.run(generations, file, density);
+        file.close();
+    }, "A function that runs the MC Ising simulation",
 }
 
 using namespace std;
 
-int n_rows, n_cols, n_rule, run_time;
-double density;
+int n_rows, n_cols, time_steps;
 string file_name;
+enum initialState {UP, DOWN, RANDOM}
 
 int seed = time(0);
 
@@ -38,7 +40,7 @@ struct MCIsing {
     void randomInitialize(double density) {
         for (int i = 0; i < rows; ++i)
             for (int j = 0; j < cols; ++j)
-                grid[i][j] = ((double)rand() / RAND_MAX < density) ? 1 : 0;
+                grid[i][j] = ((double)rand() / RAND_MAX < 0.5) ? 1 : 0;
     }
 
     int getCell(int i, int j, double density) {
@@ -155,7 +157,7 @@ int main(int argc, char** argv) {
         ofstream file(file_name);
 
         GameOfLife game(n_rows, n_cols, n_rule, boundary);
-        game.randomInitialize(density);
+        game.initialize(density);
         game.display(file);
         game.run(run_time-1, file, density); // run_time-1 because we already displayed the initial state
         file.close();
