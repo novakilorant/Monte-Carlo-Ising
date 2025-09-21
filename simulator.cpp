@@ -8,42 +8,31 @@
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(example, m) {
-    m.doc() = "C++ module for Monte Carlo Ising simulation"; // Optional module docstring
-    m.def("MCIsing", [](int rows, int cols, int n_rule, int generations, double density) {
-        MCIsing sim(rows, cols, n_rule);
-        sim.randomInitialize(density);
-        std::ofstream file("output.txt");
-        sim.run(generations, file, density);
-        file.close();
-    }, "A function that runs the MC Ising simulation",
-}
-
 using namespace std;
 
 int n_rows, n_cols, time_steps;
 string file_name;
-enum initialState {UP, DOWN, RANDOM}
+enum initialState {UP, DOWN, RANDOM};
 
 int seed = time(0);
 
 struct MCIsing {
-    int rows, cols, n_rule;
+    int rows, cols;
     vector<vector<int>> grid, newGrid;
-    
-    MCIsing(int r, int c, int n)
-        : rows(r), cols(c), n_rule(n),
+
+    MCIsing(int r, int c)
+        : rows(r), cols(c),
           grid(r, vector<int>(c, 0)), newGrid(r, vector<int>(c, 0)) {
         srand(seed);
     }
 
-    void randomInitialize(double density) {
+    void randomInitialize() {
         for (int i = 0; i < rows; ++i)
             for (int j = 0; j < cols; ++j)
-                grid[i][j] = ((double)rand() / RAND_MAX < 0.5) ? 1 : 0;
+                grid[i][j] = ((double)rand() / RAND_MAX < 0.5) ? 1 : -1;
     }
 
-    int getCell(int i, int j, double density) {
+    int getCell(int i, int j) {
         if (i < 0) i = rows - 1;
         else if (i >= rows) i = 0;
         if (j < 0) j = cols - 1;
@@ -51,23 +40,13 @@ struct MCIsing {
         return grid[i][j]; 
     }
 
-    void step(double density) {
-        for (int i = 0; i < rows; ++i)
-            for (int j = 0; j < cols; ++j) {
-                int liveNeighbors = 0;
-                for (int dx = -1; dx <= 1; ++dx)
-                    for (int dy = -1; dy <= 1; ++dy)
-                        if (dx != 0 || dy != 0)
-                            liveNeighbors += getCell(i + dx, j + dy, density);
+    void step() {
+        for (int i = 0; i < rows * cols; ++i) {
+            int r = (int)rand() % rows;
+            int c = (int)rand() % cols;
 
-                if (liveNeighbors == n_rule + 1)
-                    newGrid[i][j] = 1;
-                else if (liveNeighbors == n_rule)
-                    newGrid[i][j] = grid[i][j];
-                else
-                    newGrid[i][j] = 0;
-            }
-        grid = newGrid;
+        }
+            
     }
 
     void display(ofstream& file) {
@@ -156,13 +135,23 @@ int main(int argc, char** argv) {
     if (simulation_type == "GameOfLife") {
         ofstream file(file_name);
 
-        GameOfLife game(n_rows, n_cols, n_rule, boundary);
-        game.initialize(density);
+        MCIsing game(n_rows, n_cols);
+        game.initialize();
         game.display(file);
-        game.run(run_time-1, file, density); // run_time-1 because we already displayed the initial state
+        game.run(run_time-1, file);
         file.close();
     }
     
 
     return 0;
 }
+
+
+PYBIND11_MODULE(example, m) {
+    m.doc() = "C++ module for Monte Carlo Ising simulation"; // Optional module docstring
+    m.def("MCIsing", [](int time_steps, int rows = 10, int cols = 10, initialState state = RANDOM) {
+        MCIsing sim(rows, cols);
+        std::ofstream file("output.txt");
+        sim.run(time_steps, file, state);
+        file.close();
+    }, "A function that runs the MC Ising simulation");
