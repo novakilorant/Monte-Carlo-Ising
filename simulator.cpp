@@ -18,21 +18,26 @@ int seed = time(0);
 
 struct MCIsing {
     int rows, cols;
+    double K, k_BT, h;
     vector<vector<int>> grid, newGrid;
 
-    MCIsing(int r, int c)
+    MCIsing(int r, int c, initialState state = RANDOM, double K = 1, double k_BT = 5, double h = 0)
         : rows(r), cols(c),
-          grid(r, vector<int>(c, 0)), newGrid(r, vector<int>(c, 0)) {
+          grid(r, vector<int>(c, 0)), newGrid(r, vector<int>(c, 0)), K(K), k_BT(k_BT), h(h) {
         srand(seed);
+        initialize(state);
     }
 
-    void randomInitialize() {
+    void initialize(initialState state) {
         for (int i = 0; i < rows; ++i)
-            for (int j = 0; j < cols; ++j)
-                grid[i][j] = ((double)rand() / RAND_MAX < 0.5) ? 1 : -1;
+            for (int j = 0; j < cols; ++j) {
+                if (state == UP) grid[i][j] = 1;
+                else if (state == DOWN) grid[i][j] = -1;
+                else grid[i][j] = ((double)rand() / RAND_MAX < 0.5) ? 1 : -1;
+            }
     }
 
-    int getCell(int i, int j) {
+    int getSpin(int i, int j) {
         if (i < 0) i = rows - 1;
         else if (i >= rows) i = 0;
         if (j < 0) j = cols - 1;
@@ -65,7 +70,39 @@ struct MCIsing {
             step(density);
         }
     }
+
+    double Hamiltonian(const vector<vector<int>>& grid, int rows, int cols, double K, double k_BT, double h) {
+        double H = 0.0;
+        int adjacentSum = 0;
+        int totalSum = 0;
+        for (int i = 0; i < rows; ++i) {
+            for (int j = 0; j < cols; ++j) {
+                adjacentSum += (getSpin(i+1, j) + getSpin(i-1, j) + getSpin(i, j+1) + getSpin(i, j-1)) * getSpin(i, j);
+                totalSum += getSpin(i, j);
+            }
+        }
+        H = -K * adjacentSum + h * totalSum;
+        return H;
+    }
+
+    int Metropolis(int i, int j) {
+        int relevantSum = getSpin(i+1, j) + getSpin(i-1, j) + getSpin(i, j+1) + getSpin(i, j-1);
+        double deltaE = - 2 * getSpin(i, j) * (K * relevantSum + h);
+        if (deltaE < 0) {
+            grid[i][j] *= -1;
+            return 1;
+        } else {
+            double prob = exp(-deltaE / k_BT);
+            if (((double)rand() / RAND_MAX) < prob) {
+                grid[i][j] *= -1;
+                return 1;
+            }
+        }
+        return 0;
+    }
 };
+
+
 
 void getInput (int argc, char** argv) {
 
@@ -131,16 +168,14 @@ void getInput (int argc, char** argv) {
 int main(int argc, char** argv) {
 
     getInput(argc, argv);
+    ofstream file(file_name);
 
-    if (simulation_type == "GameOfLife") {
-        ofstream file(file_name);
+    MCIsing game(n_rows, n_cols);
+    game.initialize();
+    game.display(file);
+    game.run(run_time-1, file);
+    file.close();
 
-        MCIsing game(n_rows, n_cols);
-        game.initialize();
-        game.display(file);
-        game.run(run_time-1, file);
-        file.close();
-    }
     
 
     return 0;
@@ -149,7 +184,7 @@ int main(int argc, char** argv) {
 
 PYBIND11_MODULE(example, m) {
     m.doc() = "C++ module for Monte Carlo Ising simulation"; // Optional module docstring
-    m.def("MCIsing", [](int time_steps, int rows = 10, int cols = 10, initialState state = RANDOM) {
+    m.def("MCIsing", [](int time_steps, int rows = 10, int cols = 10, initialState state = RANDOM, double K = 1, double k_BT = 5) {
         MCIsing sim(rows, cols);
         std::ofstream file("output.txt");
         sim.run(time_steps, file, state);
