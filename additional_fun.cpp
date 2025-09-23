@@ -28,5 +28,5 @@ double X_M(vector<double> M, double k_BT) {
         M_avg += m;
         M2_avg += m*m;
     }
-    return 
+    return (M2_avg/M.size() - (M_avg/M.size())*(M_avg/M.size()))/(k_BT);
 }
