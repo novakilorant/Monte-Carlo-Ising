@@ -14,29 +14,26 @@ namespace py = pybind11;
 
 using namespace std;
 
-int n_rows, n_cols, time_steps;
-string file_name;
-enum initialState {UP, DOWN, RANDOM};
+
 
 class MCIsing {
     public:
-    int rows, cols;
+    const string file_name, state;
+    const int rows, cols;
     const double K, k_BT, h;
     vector<vector<int>> grid;
-    initialState state;
-
-    MCIsing(int r, int c, initialState state = RANDOM, double K = 1, double k_BT = 5, double h = 0, int seed = time(0))
+        MCIsing(int r, int c, string state = "RANDOM", double K = 1, double k_BT = 5, double h = 0, int seed = time(0), string file_name_ = "output.txt")
         : rows(r), cols(c),
-          grid(r, vector<int>(c, 0)), K(K), k_BT(k_BT), h(h), state(state) {
+          grid(r, vector<int>(c, 0)), K(K), k_BT(k_BT), h(h), state(state), file_name(file_name_) {
         srand(seed);
         initialize(state);
     }
 
-    void initialize(initialState state) {
+    void initialize(string state) {
         for (int i = 0; i < rows; ++i)
             for (int j = 0; j < cols; ++j) {
-                if (state == UP) grid[i][j] = 1;
-                else if (state == DOWN) grid[i][j] = -1;
+                if (state == "UP") grid[i][j] = 1;
+                else if (state == "DOWN") grid[i][j] = -1;
                 else grid[i][j] = ((double)rand() / RAND_MAX < 0.5) ? 1 : -1;
             }
     }
@@ -51,8 +48,8 @@ class MCIsing {
 
     void step() {
         for (int i = 0; i < rows * cols; ++i) {
-            int r = (int)rand() % rows;
-            int c = (int)rand() % cols;
+            int r = rand() % rows;
+            int c = rand() % cols;
             Metropolis(r, c);
         }   
     }
@@ -67,11 +64,17 @@ class MCIsing {
         }
     }
 
-    void run_external_output(int time_steps, ofstream& file) {
+    void run_external_output(int time_steps) {
+        ofstream file(file_name);
+        if (!file.is_open()) {
+            cerr << "Error opening file: " << file_name << endl;
+            return;
+        }
         for (int t = 0; t < time_steps; ++t) {
             step();
+            display(file);
         }
-        display(file);
+        file.close();
     }
 
     py::array_t<int> run_numpy_output(int time_steps) {
@@ -89,21 +92,21 @@ class MCIsing {
         return result;
     }
 
-    double H(const vector<vector<int>>& grid, int rows, int cols, double K, double k_BT, double h) {
+    double H() {
         int adjacentSum = 0;
         int totalSum = 0;
         for (int i = 0; i < rows; ++i) {
             for (int j = 0; j < cols; ++j) {
                 adjacentSum += (getSpin(i+1, j) + getSpin(i-1, j) + getSpin(i, j+1) + getSpin(i, j-1)) * getSpin(i, j);
-                totalSum += getSpin(i, j);
+                totalSum += grid[i][j];
             }
         }
-        return -K * adjacentSum + h * totalSum;
+        return -K * adjacentSum / 2.0 - h * totalSum;
     }
 
     void Metropolis(int i, int j) {
         int relevantSum = getSpin(i+1, j) + getSpin(i-1, j) + getSpin(i, j+1) + getSpin(i, j-1);
-        double deltaE = 2 * getSpin(i, j) * (K * relevantSum + h);
+        double deltaE = 2 * grid[i][j] * (K * relevantSum + h);
         if (deltaE <= 0) {
             grid[i][j] *= -1;
         } else {
@@ -119,24 +122,20 @@ class MCIsing {
 };
 
 
-PYBIND11_MODULE(MCIsing, m) {
+PYBIND11_MODULE(simulator, m) {
     py::class_<MCIsing>(m, "MCIsing")
-        .def(py::init<int, int, initialState, double, double, double, int>(),
+        .def(py::init<int, int, string, double, double, double, int, string>(),
              py::arg("rows"),
              py::arg("cols"),
-             py::arg("state") = RANDOM,
+             py::arg("state") = "RANDOM",
              py::arg("K") = 1,
              py::arg("k_BT") = 5,
              py::arg("h") = 0,
-             py::arg("seed") = time(0))
+             py::arg("seed") = time(0),
+             py::arg("file_name") = "output.txt")
         .def("step", &MCIsing::step)
         .def("run_numpy_output", &MCIsing::run_numpy_output, py::arg("time_steps"))
-        .def("run_external_output", &MCIsing::run_external_output, py::arg("time_steps"), py::arg("file"));
-    
-    py::enum_<initialState>(m, "initialState")
-        .value("UP", UP)
-        .value("DOWN", DOWN)
-        .value("RANDOM", RANDOM)
-        .export_values();
+        .def("run_external_output", &MCIsing::run_external_output, py::arg("time_steps"))
+        .def("H", &MCIsing::H);
 }
     
