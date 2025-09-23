@@ -3,6 +3,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <ctime>
+#include <cmath>
 
 // Pybind11 headers
 #include <pybind11/pybind11.h>
