@@ -419,4 +419,4 @@ FodyWeavers.xsd
 
 CMakeLists.txt
 build/*
-!build/simulator.so
+#!build/simulator.so
