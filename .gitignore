@@ -416,6 +416,8 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+*pyd
+setup.py
 
 CMakeLists.txt
 build/*
