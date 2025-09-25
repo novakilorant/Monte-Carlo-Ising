@@ -416,9 +416,9 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
-*pyd
+#*pyd
 setup.py
 
 CMakeLists.txt
-build/*
+#build/*
 #!build/simulator.so
