@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <cmath>
+#include <random>
 
 // Pybind11 headers
 #include <pybind11/pybind11.h>
@@ -21,21 +22,22 @@ class MCIsing {
     vector<vector<int>> grid;
     vector<double> energy_record;
     vector<double> magnetization_record;
+    int seed_random;
+    mt19937 mt;
         MCIsing(int r, int c, string state = "RANDOM", double K = 1, double k_BT = 5, double h = 0, int seed = time(0), string file_name_ = "output.txt")
         : rows(r), cols(c),
-          grid(r, vector<int>(c, 0)), K(K), k_BT(k_BT), h(h), state(state), file_name(file_name_) {
-        srand(seed);
+          grid(r, vector<int>(c, 0)), K(K), k_BT(k_BT), h(h), state(state), file_name(file_name_), mt(seed) {
         initialize(state);
     }
 
-    void initialize(string state) {
+    void initialize(string state = "RANDOM") {
         energy_record.clear();
         magnetization_record.clear();
         for (int i = 0; i < rows; ++i)
             for (int j = 0; j < cols; ++j) {
                 if (state == "UP") grid[i][j] = 1;
                 else if (state == "DOWN") grid[i][j] = -1;
-                else grid[i][j] = ((double)rand() / RAND_MAX < 0.5) ? 1 : -1;
+                else grid[i][j] = (mt() % 2 == 0) ? 1 : -1;
             }
     }
 
@@ -49,8 +51,8 @@ class MCIsing {
 
     void step() {
         for (int i = 0; i < rows * cols; ++i) {
-            int r = rand() % rows;
-            int c = rand() % cols;
+            int r = mt() % rows;
+            int c = mt() % cols;
             Metropolis(r, c);
         }   
     }
@@ -140,13 +142,9 @@ class MCIsing {
     void Metropolis(int i, int j) {
         int relevantSum = getSpin(i+1, j) + getSpin(i-1, j) + getSpin(i, j+1) + getSpin(i, j-1);
         double deltaE = 2 * grid[i][j] * (K * relevantSum + h);
-        if (deltaE <= 0) {
+        uniform_real_distribution<double> dist(0.0, 1.0);
+        if (deltaE <= 0 || dist(mt) < exp(-deltaE / k_BT)) {
             grid[i][j] *= -1;
-        } else {
-            double prob = exp(-deltaE);
-            if (((double)rand() / RAND_MAX) < prob) {
-                grid[i][j] *= -1;
-            }
         }
     }
 
