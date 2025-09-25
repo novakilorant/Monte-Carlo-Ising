@@ -15,7 +15,8 @@ using namespace std;
 
 class MCIsing {
     public:
-    const string file_name, state;
+    const string file_name;
+    string state;
     const int rows, cols;
     const double K, k_BT, h;
     vector<vector<int>> grid;
@@ -29,6 +30,8 @@ class MCIsing {
     }
 
     void initialize(string state) {
+        energy_record.clear();
+        magnetization_record.clear();
         for (int i = 0; i < rows; ++i)
             for (int j = 0; j < cols; ++j) {
                 if (state == "UP") grid[i][j] = 1;
@@ -64,8 +67,6 @@ class MCIsing {
     }
 
     void run_external_output(int time_steps) {
-        energy_record.clear();
-        magnetization_record.clear();
         ofstream file(file_name);
         if (!file.is_open()) {
             cerr << "Error opening file: " << file_name << endl;
@@ -83,8 +84,6 @@ class MCIsing {
     py::array_t<int> run_numpy_output(int time_steps) {
         auto result = py::array_t<int>({time_steps, rows, cols});
         auto states = result.mutable_unchecked<3>();
-        energy_record.clear();
-        magnetization_record.clear();
         for (int t = 0; t < time_steps; ++t) {
             step();
             // Copy the current state of the grid into the numpy array
@@ -95,6 +94,24 @@ class MCIsing {
             }
             energy_record.push_back(H());
             magnetization_record.push_back(M());
+        }
+        return result;
+    }
+
+    py::array_t<double> get_energy_record() {
+        auto result = py::array_t<double>(energy_record.size());
+        auto r = result.mutable_unchecked<1>();
+        for (size_t i = 0; i < energy_record.size(); ++i) {
+            r(i) = energy_record[i];
+        }
+        return result;
+    }
+
+    py::array_t<double> get_magnetization_record() {
+        auto result = py::array_t<double>(magnetization_record.size());
+        auto r = result.mutable_unchecked<1>();
+        for (size_t i = 0; i < magnetization_record.size(); ++i) {
+            r(i) = magnetization_record[i];
         }
         return result;
     }
@@ -140,6 +157,7 @@ class MCIsing {
 
 
 PYBIND11_MODULE(simulator, m) {
+    m.doc() = "Monte Carlo Ising Model Simulator using Metropolis Algorithm";
     py::class_<MCIsing>(m, "MCIsing")
         .def(py::init<int, int, string, double, double, double, int, string>(),
              py::arg("rows"),
@@ -149,10 +167,11 @@ PYBIND11_MODULE(simulator, m) {
              py::arg("k_BT") = 5,
              py::arg("h") = 0,
              py::arg("seed") = time(0),
-             py::arg("file_name") = "output.txt")
+             py::arg("file_name") = "output.txt",
+             "Initialize the MCIsing simulator with given parameters.\n\nParameters:\n----------\nrows : int\ncols : int\nstate : str\nK : float\nk_BT : float\nh : float\nseed : int\nfile_name : str\n")
         .def("step", &MCIsing::step)
         .def("run_numpy_output", &MCIsing::run_numpy_output, py::arg("time_steps"))
         .def("run_external_output", &MCIsing::run_external_output, py::arg("time_steps"))
-        .def("H", &MCIsing::H);
+        .def("get_energy_record", &MCIsing::get_energy_record)
+        .def("get_magnetization_record", &MCIsing::get_magnetization_record);
 }
-    
