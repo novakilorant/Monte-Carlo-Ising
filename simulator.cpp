@@ -10,7 +10,6 @@
 #include <pybind11/numpy.h>
 
 namespace py = pybind11;
-
 using namespace std;
 
 class MCIsing {
@@ -121,7 +120,7 @@ class MCIsing {
         int totalSum = 0;
         for (int i = 0; i < rows; ++i) {
             for (int j = 0; j < cols; ++j) {
-                adjacentSum += (getSpin(i+1, j) + getSpin(i-1, j) + getSpin(i, j+1) + getSpin(i, j-1)) * getSpin(i, j);
+                adjacentSum += grid[i][j] * (getSpin(i+1, j) + getSpin(i-1, j) + getSpin(i, j+1) + getSpin(i, j-1));
                 totalSum += grid[i][j];
             }
         }
@@ -170,6 +169,7 @@ PYBIND11_MODULE(simulator, m) {
              py::arg("file_name") = "output.txt",
              "Initialize the MCIsing simulator with given parameters.\n\nParameters:\n----------\nrows : int\ncols : int\nstate : str\nK : float\nk_BT : float\nh : float\nseed : int\nfile_name : str\n")
         .def("step", &MCIsing::step)
+        .def("initialize", &MCIsing::initialize, py::arg("state") = "RANDOM")
         .def("run_numpy_output", &MCIsing::run_numpy_output, py::arg("time_steps"))
         .def("run_external_output", &MCIsing::run_external_output, py::arg("time_steps"))
         .def("get_energy_record", &MCIsing::get_energy_record)
