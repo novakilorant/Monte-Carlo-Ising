@@ -9,12 +9,9 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
-
 namespace py = pybind11;
 
 using namespace std;
-
-
 
 class MCIsing {
     public:
@@ -22,6 +19,8 @@ class MCIsing {
     const int rows, cols;
     const double K, k_BT, h;
     vector<vector<int>> grid;
+    vector<double> energy_record;
+    vector<double> magnetization_record;
         MCIsing(int r, int c, string state = "RANDOM", double K = 1, double k_BT = 5, double h = 0, int seed = time(0), string file_name_ = "output.txt")
         : rows(r), cols(c),
           grid(r, vector<int>(c, 0)), K(K), k_BT(k_BT), h(h), state(state), file_name(file_name_) {
@@ -65,6 +64,8 @@ class MCIsing {
     }
 
     void run_external_output(int time_steps) {
+        energy_record.clear();
+        magnetization_record.clear();
         ofstream file(file_name);
         if (!file.is_open()) {
             cerr << "Error opening file: " << file_name << endl;
@@ -73,6 +74,8 @@ class MCIsing {
         for (int t = 0; t < time_steps; ++t) {
             step();
             display(file);
+            energy_record.push_back(H());
+            magnetization_record.push_back(M());
         }
         file.close();
     }
@@ -80,6 +83,8 @@ class MCIsing {
     py::array_t<int> run_numpy_output(int time_steps) {
         auto result = py::array_t<int>({time_steps, rows, cols});
         auto states = result.mutable_unchecked<3>();
+        energy_record.clear();
+        magnetization_record.clear();
         for (int t = 0; t < time_steps; ++t) {
             step();
             // Copy the current state of the grid into the numpy array
@@ -88,6 +93,8 @@ class MCIsing {
                     states(t, i, j) = grid[i][j];
                 }
             }
+            energy_record.push_back(H());
+            magnetization_record.push_back(M());
         }
         return result;
     }
@@ -104,13 +111,23 @@ class MCIsing {
         return -K * adjacentSum / 2.0 - h * totalSum;
     }
 
+    double M() {
+        int totalSum = 0;
+        for (int i = 0; i < rows; ++i) {
+            for (int j = 0; j < cols; ++j) {
+                totalSum += grid[i][j];
+            }
+        }
+        return (double)totalSum / (rows * cols);
+    }
+
     void Metropolis(int i, int j) {
         int relevantSum = getSpin(i+1, j) + getSpin(i-1, j) + getSpin(i, j+1) + getSpin(i, j-1);
         double deltaE = 2 * grid[i][j] * (K * relevantSum + h);
         if (deltaE <= 0) {
             grid[i][j] *= -1;
         } else {
-            double prob = exp(-deltaE / k_BT);
+            double prob = exp(-deltaE);
             if (((double)rand() / RAND_MAX) < prob) {
                 grid[i][j] *= -1;
             }
