@@ -39,6 +39,8 @@ class MCIsing {
                 else if (state == "DOWN") grid[i][j] = -1;
                 else grid[i][j] = (mt() % 2 == 0) ? 1 : -1;
             }
+        energy_record.push_back(H());
+        magnetization_record.push_back(M());
     }
 
     int getSpin(int i, int j) {
