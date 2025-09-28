@@ -75,6 +75,7 @@ class MCIsing {
             cerr << "Error opening file: " << file_name << endl;
             return;
         }
+        display(file);
         for (int t = 0; t < time_steps; ++t) {
             step();
             display(file);
@@ -87,10 +88,16 @@ class MCIsing {
     py::array_t<int> run_numpy_output(int time_steps) {
         auto result = py::array_t<int>({time_steps, rows, cols});
         auto states = result.mutable_unchecked<3>();
+        for (int i = 0; i < rows; ++i) {
+                for (int j = 0; j < cols; ++j) {
+                    states(0, i, j) = grid[i][j];
+                }
+            }
+
         for (int t = 0; t < time_steps; ++t) {
             step();
             // Copy the current state of the grid into the numpy array
-            for (int i = 0; i < rows; ++i) {
+            for (int i = 1; i < rows; ++i) {
                 for (int j = 0; j < cols; ++j) {
                     states(t, i, j) = grid[i][j];
                 }
